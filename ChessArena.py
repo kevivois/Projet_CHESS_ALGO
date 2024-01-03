@@ -78,6 +78,7 @@ class ChessArena(QtWidgets.QWidget):
 
         if self.nbr_turn_to_play == 0:
             print("No more play to do")
+            self.end_game(None)
             return
 
         next_player_color = self.player_order[0:3]
@@ -110,8 +111,9 @@ class ChessArena(QtWidgets.QWidget):
 
             self.add_system_message(COLOR_NAMES[player_color] + " moved " + CHESS_PIECES_NAMES[self.current_player.board[next_play[0][0], next_play[0][1]][0]] +
                                     " from " + str(next_play[0]) + " to " + str(next_play[1]))
+
             if self.current_player.board[next_play[1][0], next_play[1][1]] != '':
-                self.add_system_message(COLOR_NAMES[player_color] + " captured " + COLOR_NAMES[self.current_player.board[next_play[0][0], next_play[0][1]][1]] + " " + CHESS_PIECES_NAMES[self.current_player.board[next_play[0][0], next_play[0][1]][0]])
+                self.add_system_message(COLOR_NAMES[player_color] + " captured " + COLOR_NAMES[self.current_player.board[next_play[1][0], next_play[1][1]][1]] + " " + CHESS_PIECES_NAMES[self.current_player.board[next_play[1][0], next_play[1][1]][0]])
 
             #   apply move
             self.current_player.board[next_play[1][0], next_play[1][1]] = self.current_player.board[next_play[0][0], next_play[0][1]]
@@ -125,10 +127,8 @@ class ChessArena(QtWidgets.QWidget):
             for row in self.board:
                 for elem in row:
                     if len(elem) > 0 and elem[0] == 'k':
-                        if self.player_order[self.player_order.find(elem[1])-1] != self.current_player.team:
+                        if int(self.player_order[self.player_order.find(elem[1])-1]) != int(self.current_player.team):
                             all_other_defeated = False
-
-            all_other_defeated = player_color if all_other_defeated else False
 
         #   Update board state
         self.current_player = None
@@ -140,7 +140,7 @@ class ChessArena(QtWidgets.QWidget):
         self.nbr_turn_to_play -= 1
 
         if all_other_defeated:
-            self.end_game(all_other_defeated)
+            self.end_game(player_color)
         else:
             self.play_next_turn()
 
@@ -149,7 +149,7 @@ class ChessArena(QtWidgets.QWidget):
         if winner is None:
             self.add_system_message("# Match ended in a draw")
         else:
-            self.add_system_message("# ",COLOR_NAMES[winner]," won the match")
+            self.add_system_message("# " + str(COLOR_NAMES[winner]) + " won the match")
 
     def select_and_load_board(self):
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Select board", "C:\\Users\\Louis\\Desktop\\ISChess\\Data\\maps", "Board File (*.brd)")
