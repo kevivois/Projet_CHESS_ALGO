@@ -70,6 +70,11 @@ def move_is_valid(player_order, move, board):
        start[1] < 0 or start[1] >= board.shape[1]:
        return False
 
+    #   Check boundary condition
+    if end[0] < 0 or end[0] >= board.shape[0] or \
+       end[1] < 0 or end[1] >= board.shape[1]:
+       return False
+
     #   Check piece moved
     if board[start[0], start[1]] == '' or board[start[0], start[1]] == 'X':
         return False
