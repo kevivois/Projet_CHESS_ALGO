@@ -11,52 +11,68 @@ from PyQt6 import QtCore
 
 #   Be careful with modules to import from the root (don't forget the Bots.)
 from Bots.ChessBotList import register_chess_bot
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ChessRules import *
 
 #   Simply move the pawns forward and tries to capture as soon as possible
 def chess_bot(player_sequence, board, time_budget, **kwargs):
 
+    possible_move = []
     color = player_sequence[1]
+    def evaluate_move(start, end, board):
+        x,y = end
+        
+        if board[x,y] == '':
+            return 1
+        piece = board[x,y][0]
+        if piece[-1] != color:
+            return 10
+        elif piece[-1] != color and piece[0] == "k":
+            return 50
+        return 0
+
+    def findPath(path,board, depth):
+        if depth == 0:
+            return evaluate_move(*path[-1], board), path[-1]
+        
+        max_score = float('-inf')
+        best_move = None
+
+        for move in possible_move:
+            start, end = move
+
+            board[end[0],end[1]] = board[start[0],start[1]]
+            board[start[0], start[1]] = ''
+
+            score, _ = findPath(path + [move], board, depth - 1)
+
+            board[start[0], start[1]] = board[end[0], end[1]]
+            board[end[0], end[1]] = ''
+
+            if score > max_score:
+                max_score = score
+                best_move = move
+
+        return max_score, best_move
+    
+    def generate_move(x,y,color, board):
+        moves = []
+        direction = 1 if color == "w" else -1
+        if y > 0 and board[x+direction,y-1] != '' and board[x+direction,y-1][-1] != color:
+            moves.append([[x,y],[x+1,y-1]])
+        if y < board.shape[1] - 1 and board[x+direction,y+1] != '' and board[x+direction,y+1][1] != color:
+            moves.append([[x,y],[x+1,y+1]])
+        elif board[x+direction,y] == '':
+            moves.append([[x,y],[x+1,y]])
+        return moves
+
+
     for x in range(board.shape[0]-1):
         for y in range(board.shape[1]):
-            if board[x,y][0] == "p":
-                if board[x,y] != "p"+color:
-                    continue
-                if move_is_valid(player_sequence[0:4], [[x,y], [x+1,y-1]], board):
-                    return (x,y), (x+1,y-1)
-                if move_is_valid(player_sequence[0:4], [[x,y], [x+1,y+1]], board):
-                    return (x,y), (x+1,y+1)
-                elif board[x+1,y] == '':
-                    return (x,y), (x+1,y)
-            elif board[x,y][0] == "k":
-                if board[x,y] != "k"+color:
-                    continue
-                if move_is_valid(player_sequence[0:4], [[x,y],[x+1,y-1]], board): #diag bas-gauche
-                    return(x,y), (x+1,y-1)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x+1,y]], board): #bas
-                    return(x,y), (x+1,y)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x+1,y+1]], board): #diag bas-droite
-                    return (x,y), (x+1,y+1)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x,y-1]], board): #gauche
-                    return (x,y), (x,y-1)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x,y+1]], board): #droite
-                    return (x,y), (x,y+1)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x-1,y-1]], board): #diag haut-gauche
-                    return (x,y), (x-1,y-1)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x-1,y]], board): #haut
-                    return (x,y), (x-1,y)
-                elif move_is_valid(player_sequence[0:4], [[x,y], [x-1,y+1]], board): #diag haut-droite
-                    return (x,y), (x-1,y+1)
-            elif board[x,y][0] == "r":
-                if board[x,y] != "r" + color:
-                    continue
-
-                
-
-
+            if board[x,y] == "p"+color:
+                possible_move.extend(generate_move(x,y,color,board))
+    
+    _, best_move = findPath([], board, 3)
+    if best_move:
+        return best_move
     return (0,0), (0,0)
 
 #   Example how to register the function
