@@ -1,11 +1,83 @@
 
-
 def check_player_defeated(player_color, board):
     for x in range(board.shape[0]):
         for y in range(board.shape[1]):
             if board[x,y] == 'k'+player_color:
                 return False
     return True
+#CHESS_PIECES_NAMES = {"k":"King", "q":"Queen", "n":"Knight", "b":"Bishop", "r":"Rook", "p":"Pawn"}
+def get_all_moves(player_order,move,board):
+    player_color = player_order[1]
+    start,end = move
+    piece_data = board[start[0], start[1]]
+    piece = piece_data[0]
+    if player_color != piece_data[1]:
+        return []
+    elif piece == "k": 
+        moves = []
+        for i1 in range(-1,2):
+            for i2 in range(-1,2):
+                current_new_pos = [start[0]+i1,start[1]+i2]
+                if  i1 == 0 or i2 == 0:
+                    moves.append(current_new_pos)
+        return moves
+    elif piece == "n":
+        moves = []
+        pass
+        
+        
+    elif piece == "b":
+        moves = []
+        for x in range(board.shape[0]-1):
+            for y in range(board.shape[1]):
+                new_pos_diag_rb = [start[0]+x, start[1]-y]
+                new_pos_diag_ru = [start[0]+x, start[1]+y]
+                new_pos_diag_lb = [start[0]-x, start[1]-y]
+                new_pos_diag_lu = [start[0]-x, start[1]+y]
+                
+                moves.append(new_pos_diag_rb)
+                moves.append(new_pos_diag_ru)
+                moves.append(new_pos_diag_lb)
+                moves.append(new_pos_diag_lu)
+    elif piece == "r":
+        moves = []
+        for x in range(board.shape[0]-1):
+            for y in range(board.shape[1]):
+                new_pos_vertical1 = [start[0], start[1]+y]
+                new_pos_vertical2 = [start[0], start[1]-y]
+                new_pos_horizontal1 = [start[0]+x, start[1]]
+                new_pos_horizontal2 = [start[0]-x, start[1]]
+
+                moves.append(new_pos_vertical1)
+                moves.append(new_pos_vertical2)
+                moves.append(new_pos_horizontal1)
+                moves.append(new_pos_horizontal2)
+    elif piece == "p":
+        pass
+    elif piece == "q":
+        moves = []
+        for x in range(board.shape[0]-1):
+            for y in range(board.shape[1]):
+                new_pos_vertical1 = [start[0], start[1]+y]
+                new_pos_vertical2 = [start[0], start[1]-y]
+                new_pos_horizontal1 = [start[0]+x, start[1]]
+                new_pos_horizontal2 = [start[0]-x, start[1]]
+                new_pos_diag_rb = [start[0]+x, start[1]-y]
+                new_pos_diag_ru = [start[0]+x, start[1]+y]
+                new_pos_diag_lb = [start[0]-x, start[1]-y]
+                new_pos_diag_lu = [start[0]-x, start[1]+y]
+                
+                moves.append(new_pos_vertical1)
+                moves.append(new_pos_vertical2)
+                moves.append(new_pos_horizontal1)
+                moves.append(new_pos_horizontal2)
+                moves.append(new_pos_diag_rb)
+                moves.append(new_pos_diag_ru)
+                moves.append(new_pos_diag_lb)
+                moves.append(new_pos_diag_lu)
+                    
+
+                
 
 def move_is_valid(player_order, move, board):
     player_color = player_order[1]
