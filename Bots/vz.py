@@ -31,36 +31,74 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
             score -= 2
         return score
 
-    def findPath(path, board, depth):
+    def findPath(path, board, depth, alpha, beta, maximizing_player):
         if depth == 0 or time.time() - start_time > time_budget * 0.95:
             start, end = path[-1] if path else ((0,0), (0,0))
             return evaluate_move(start, end, board, path), path[-1] if path else ((0,0), (0,0))
 
-        max_score = float('-inf')
-        best_move = None
+        if maximizing_player:
+            max_score = float('-inf')
+            best_move = None
 
-        for move in possible_move:
-            start, end = move
+            for move in possible_move:
+                start, end = move
 
-            new_depth = depth - 1
-            if board[end[0], end[1]] != '':
-                new_depth += 1
+                new_depth = depth - 1
+                if board[end[0], end[1]] != '':
+                    new_depth += 1
 
-            original_start = board[start[0]][start[1]]
-            original_end = board[end[0]][end[1]]
-            board[end[0]][end[1]] = original_start
-            board[start[0]][start[1]] = ''
+                original_start = board[start[0]][start[1]]
+                original_end = board[end[0]][end[1]]
+                board[end[0]][end[1]] = original_start
+                board[start[0]][start[1]] = ''
 
-            score, _ = findPath(path + [move], board, new_depth)
+                score, _ = findPath(path + [move], board, new_depth, alpha, beta, False)
 
-            board[start[0]][start[1]] = original_start
-            board[end[0]][end[1]] = original_end
+                board[start[0]][start[1]] = original_start
+                board[end[0]][end[1]] = original_end
 
-            if score > max_score:
-                max_score = score
-                best_move = move
+                if score > max_score:
+                    max_score = score
+                    best_move = move
+                
+                alpha = max(alpha, max_score)
+                if beta <= alpha:
+                    break
 
-        return max_score, best_move
+            return max_score, best_move
+        else:
+            min_score = float('inf')
+            best_move = None
+            for move in possible_move:
+                max_score = float('-inf')
+            best_move = None
+
+            for move in possible_move:
+                start, end = move
+
+                new_depth = depth - 1
+                if board[end[0], end[1]] != '':
+                    new_depth += 1
+
+                original_start = board[start[0]][start[1]]
+                original_end = board[end[0]][end[1]]
+                board[end[0]][end[1]] = original_start
+                board[start[0]][start[1]] = ''
+
+                score, _ = findPath(path + [move], board, new_depth, alpha, beta, False)
+
+                board[start[0]][start[1]] = original_start
+                board[end[0]][end[1]] = original_end
+
+                if score > max_score:
+                    max_score = score
+                    best_move = move
+                
+                alpha = max(alpha, max_score)
+                if beta <= alpha:
+                    break
+
+            return min_score, best_move
     
     def is_within_board(pos, board):
         return 0 <= pos[0] < board.shape[0] and 0 <= pos[1] < board.shape[1]
@@ -121,7 +159,7 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
     if not possible_move:
         return (0, 0), (0, 0)
 
-    _, best_move = findPath([], board, 3)
+    _, best_move = findPath([], board, 3, float('-inf'), float('inf'), True)
     if best_move:
         return best_move
     
