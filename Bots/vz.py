@@ -6,6 +6,7 @@
 #           budget: time budget allowed for this turn, the function must return a pair (xs,ys) --> (xd,yd) to indicate a piece at xs, ys moving to xd, yd
 #
 import time
+import random
 from PyQt6 import QtCore
 
 #   Be careful with modules to import from the root (don't forget the Bots.)
@@ -29,7 +30,7 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
                 score = 10 + piece_values.get(piece[0], 0)
         if len(path) > 2 and path[-2] == [end, start]:
             score -= 2
-        return score
+        return score + random.uniform(-0.1, 0.1)
 
     def findPath(path, board, depth, alpha, beta, maximizing_player):
         if depth == 0 or time.time() - start_time > time_budget * 0.95:
@@ -158,6 +159,8 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
 
     if not possible_move:
         return (0, 0), (0, 0)
+    
+    random.shuffle(possible_move)
 
     _, best_move = findPath([], board, 3, float('-inf'), float('inf'), True)
     if best_move:
