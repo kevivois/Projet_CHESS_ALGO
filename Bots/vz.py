@@ -18,6 +18,7 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
     start_time = time.time()
     possible_move = []
     color = player_sequence[1]
+    piece_values = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 100}
 
     def evaluate_move(start, end, board, path, color):
         x, y = end
@@ -27,7 +28,6 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
         else:
             piece = board[x, y][0]
             if piece[-1] != color:
-                piece_values = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 100}
                 score = 10 + piece_values.get(piece[0], 0)
 
         # Pénalité pour les mouvements répétitifs
@@ -44,6 +44,16 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
         # Bonus pour sortir d'un échec
         if is_king_in_check(board, color) and not is_king_in_check(temp_board, color):
             score += 30  # Bonus pour sortir d'un échec
+
+        # Bonus pour le contrôle du centre
+        center_squares = [(3, 3), (3, 4), (4, 3), (4, 4)]
+        for x, y in center_squares:
+            if board[x, y] != "" and board[x, y][-1] == color:
+                score += 0.5
+
+        if board[x, y] != "" and board[x, y][1] == color:
+            moves = generate_move(x, y, color, board)
+            score += len(moves) * 0.1
 
         return score + random.uniform(-0.1, 0.1)
 
@@ -130,9 +140,8 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
         moves = []
         piece = board[x, y][0]
         if piece == "p":  # Pawn
-            if is_within_board([x + 1, y], board):
-                if board[x + 1, y] == "":
-                    moves.append([[x, y], [x + 1, y]])
+            if is_within_board([x + 1, y], board) and board[x + 1, y] == "":
+                moves.append([[x, y], [x + 1, y]])
                 # Captures
                 for dy in [-1, 1]:
                     if (
@@ -172,37 +181,25 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
                     or board[new_pos[0], new_pos[1]][-1] != color
                 ):
                     moves.append([[x, y], new_pos])
-        elif piece in ["b", "r", "q"]:  # bishop, Rook, Queen
-            directions = (
-                [(1, 1), (1, -1), (-1, 1), (-1, -1)]
-                if piece == "b"
-                else (
-                    [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                    if piece == "r"
-                    else [
-                        (1, 0),
-                        (-1, 0),
-                        (0, 1),
-                        (0, -1),
-                        (1, 1),
-                        (1, -1),
-                        (-1, 1),
-                        (-1, -1),
-                    ]
-                )
-            )
-            for direction in directions:
-                for i in range(1, max(board.shape)):
-                    new_x, new_y = x + direction[0] * i, y + direction[1] * i
-                    if not is_within_board([new_x, new_y], board):
-                        break
+        elif piece in ["b", "r", "q"]:  # Bishop, Rook, Queen
+            directions = []
+            if piece in ["b", "q"]:  # Bishop/Queen moves
+                directions.extend([(1, 1), (1, -1), (-1, 1), (-1, -1)])
+            if piece in ["r", "q"]:  # Rook/Queen moves
+                directions.extend([(1, 0), (-1, 0), (0, 1), (0, -1)])
+
+            for dx, dy in directions:
+                new_x, new_y = x + dx, y + dy
+                while is_within_board((new_x, new_y), board):
                     if board[new_x, new_y] == "":
                         moves.append([[x, y], [new_x, new_y]])
-                    elif board[new_x, new_y][-1] != color:
+                    elif board[new_x, new_y][1] != color:
                         moves.append([[x, y], [new_x, new_y]])
                         break
                     else:
                         break
+                    new_x, new_y = new_x + dx, new_y + dy
+
         return moves
 
     def is_king_in_check(board, color):
@@ -236,11 +233,21 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
 
     random.shuffle(possible_move)
 
-    if is_king_in_check(board, color):
-        # Si le roi est en échec, augmentez la profondeur de recherche
-        depth = 4
-    else:
+    piece_count = sum(
+        1
+        for x in range(board.shape[0])
+        for y in range(board.shape[1])
+        if board[x, y] != ""
+    )
+
+    if piece_count > 20 or is_king_in_check(
+        board, color
+    ):  # Opening/middlegame or King in check
         depth = 3
+    elif piece_count > 10:  # Late middlegame
+        depth = 4
+    else:  # Endgame
+        depth = 5
 
     _, best_move = findPath([], board, depth, float("-inf"), float("inf"), True)
     if best_move:
