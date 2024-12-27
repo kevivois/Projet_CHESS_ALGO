@@ -95,7 +95,7 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
                     max_score = score
                     best_move = move
                 
-                alpha = max(alpha, max_score)
+                beta = min(beta, max_score)
                 if beta <= alpha:
                     break
 
@@ -107,18 +107,15 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
     def generate_move(x, y, color, board):
         moves = []
         piece = board[x,y][0]
-        if piece == "p":
+        if piece == "p": # Pawn
             if is_within_board([x + 1, y], board):
                 if board[x + 1, y] == '':
                     moves.append([[x, y], [x + 1, y]])
-                    if (color == 'w' and x == 1) or (color == 'b' and x == 6):  # Position initiale
-                        if board[x + 2*1, y] == '':
-                            moves.append([[x, y], [x + 2*1, y]])
                 # Captures
                 for dy in [-1, 1]:
                     if is_within_board([x + 1, y + dy], board) and board[x + 1, y + dy] != '' and board[x + 1, y + dy][-1] != color:
                         moves.append([[x, y], [x + 1, y + dy]])
-        elif piece == "k":
+        elif piece == "k": # King
             for dx in [-1, 0, 1]:
                 for dy in [-1, 0, 1]:
                     if dx == 0 and dy == 0:
@@ -132,9 +129,9 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
             knight_moves = [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]
             for move in knight_moves:
                 new_pos = [x + move[0], y + move[1]]
-                if is_within_board(new_pos, board):
+                if is_within_board(new_pos, board) and (board[new_pos[0], new_pos[1]] == '' or board[new_pos[0], new_pos[1]][-1] != color):
                     moves.append([[x,y],new_pos])
-        elif piece in ["b", "r", "q"]:
+        elif piece in ["b", "r", "q"]: #bishop, Rook, Queen
             directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)] if piece == "b" else \
                         [(1, 0), (-1, 0), (0, 1), (0, -1)] if piece == "r" else \
                         [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
