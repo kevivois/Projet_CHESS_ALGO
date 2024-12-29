@@ -106,7 +106,7 @@ class ChessArena(QtWidgets.QWidget):
             next_play = self.current_player.next_move
 
             if not move_is_valid(self.player_order, next_play, self.current_player.board):
-                self.add_system_message(COLOR_NAMES[player_color] + " invalid move from " + str(next_play[0]) + " to " + str(next_play[1]))
+                self.add_system_message(COLOR_NAMES[player_color] + " invalid move from " + str(next_play[0]) + " to " + str(next_play[1]) + " | "+CHESS_PIECES_NAMES[self.current_player.board[next_play[0][0], next_play[0][1]][0]])
                 return
 
             self.add_system_message(COLOR_NAMES[player_color] + " moved " + CHESS_PIECES_NAMES[self.current_player.board[next_play[0][0], next_play[0][1]][0]] +
@@ -215,7 +215,7 @@ class ChessArena(QtWidgets.QWidget):
 
             for name in CHESS_BOT_LIST:
                 choice.addItem(name, CHESS_BOT_LIST[name])
-            choice.setCurrentIndex(0)
+            choice.setCurrentIndex(1)
 
             self.players_AI_choice[color] = choice
             self.playersList.addWidget(choice)
@@ -267,7 +267,7 @@ class ChessArena(QtWidgets.QWidget):
         self.chessboardView.fitInView(self.chess_scene.sceneRect())
 
     def start(self):
-        self.board = self.load_board("Data/maps/pawn_race.brd")
+        self.board = self.load_board("Data/maps/default.brd")
         self.setup_board()
         self.setup_players()
         self.chess_scene.update()
