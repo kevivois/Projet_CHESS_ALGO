@@ -15,143 +15,221 @@ from Bots.ChessBotList import register_chess_bot
 
 
 # Valeurs des pièces
-PIECE_VALUES = {"p": 100, "n": 320, "b": 330, "r": 500, "q": 900, "k": 20000}
-
-# Bonus de position pour chaque type de pièce
-POSITION_BONUS = {
-    "p": np.array(
-        [
-            [0, 0, 0, 0, 0, 0, 0, 0],
-            [50, 50, 50, 50, 50, 50, 50, 50],
-            [10, 10, 20, 30, 30, 20, 10, 10],
-            [5, 5, 10, 25, 25, 10, 5, 5],
-            [0, 0, 0, 20, 20, 0, 0, 0],
-            [5, -5, -10, 0, 0, -10, -5, 5],
-            [5, 10, 10, -20, -20, 10, 10, 5],
-            [0, 0, 0, 0, 0, 0, 0, 0],
-        ]
-    ),
-    # Bonus pour d'autres pièces (facultatif)
+PIECE_VALUES = {
+    "p": 100,  # Pion
+    "n": 350,  # Cavalier
+    "b": 350,  # Fou
+    "r": 525,  # Tour
+    "q": 5000,  # Dame
+    "k": 10000,  # Roi (non évalué directement)
 }
 
 
-def is_valid_position(x, y):
-    return 0 <= x < 8 and 0 <= y < 8
+def is_valid_position(x, y, board):
+    return 0 <= x < board.shape[0] and 0 <= y < board.shape[1]
 
 
 def is_empty_or_enemy(board, x, y, color):
     return board[x, y] == "" or board[x, y][1] != color
 
 
-# Fonction pour évaluer le développement des pions
-def evaluate_pawn_development(board, color):
-    score = 0
-    pawn_columns = set()
-    enemy_color = "B" if color == "W" else "W"
-
-    for x in range(8):
-        for y in range(8):
-            if board[x, y] == f"p{color}":
-                if 2 <= y <= 5:
-                    score += 10 * (x if color == "W" else 7 - x)
-                if y in pawn_columns:
-                    score -= 20
-                pawn_columns.add(y)
-                if all(board[i, y] != f"p{enemy_color}" for i in range(8)):
-                    score += 50
-                if y > 0 and y < 7:
-                    if all(
-                        board[i, y - 1] != f"p{color}"
-                        and board[i, y + 1] != f"p{color}"
-                        for i in range(8)
-                    ):
-                        score -= 30
-
-    center_control = sum(
-        1 for x in [3, 4] for y in [3, 4] if board[x, y] == f"p{color}"
-    )
-    score += center_control * 20
-
-    return score
-
-
-def evaluate_pawn_structure(board, color):
-    score = 0
-    for y in range(8):
-        pawn_chain = 0
-        for x in range(8):
-            if board[x, y] == f"p{color}":
-                if pawn_chain > 0:
-                    score += 10
-                pawn_chain += 1
+def get_material_value(board, color):
+    result = 0
+    for x in range(board.shape[0] - 1):
+        for y in range(board.shape[1]):
+            if board[x, y] == "":
+                continue
+            piece = board[x, y][0]
+            piece_color = board[x, y][1]
+            value = PIECE_VALUES.get(piece, 0)
+            if piece_color == color:
+                result += value
             else:
-                pawn_chain = 0
-    return score
+                result -= value
+    return result
 
 
-def evaluate_board(board, color, move=None):
+def evaluate_space_control(board, color):
+    CENTER_WEIGHTS = {
+        (3, 3): 10,
+        (3, 4): 10,
+        (4, 3): 10,
+        (4, 4): 10,  # Cases centrales
+        (2, 3): 5,
+        (2, 4): 5,
+        (3, 2): 5,
+        (3, 5): 5,  # Cases autour du centre
+        (4, 2): 5,
+        (4, 5): 5,
+        (5, 3): 5,
+        (5, 4): 5,
+    }
     score = 0
     for x in range(board.shape[0]):
         for y in range(board.shape[1]):
             piece = board[x, y]
-            if piece:
-                piece_type = piece[0].lower()
-                piece_color = piece[1]
-                value = PIECE_VALUES.get(piece_type, 0)
-                if piece_color == color:
-                    score += value
-                    score += POSITION_BONUS.get(piece_type, np.zeros((8, 8)))[x][y]
-                else:
-                    score -= value
-                    score -= POSITION_BONUS.get(piece_type, np.zeros((8, 8)))[7 - x][y]
+            if piece and piece[1] == color:
+                piece_moves = get_legal_moves_for_piece(board, (x, y), color)
+                for move in piece_moves:
+                    _, (new_x, new_y) = move
+                    # Ajoutez le poids de la case contrôlée
+                    score += CENTER_WEIGHTS.get((new_x, new_y), 1)
 
-    score += evaluate_pawn_development(board, color)
-    score += evaluate_pawn_structure(board, color)
-
-    print(f"[Evaluation] Score for color {color}: {score}")
     return score
 
 
-def minimax(board, depth, alpha, beta, maximizing_player, color):
-    print(
-        f"[Minimax] Called at depth {depth}, alpha={alpha}, beta={beta}, maximizing={maximizing_player}"
-    )
-    if depth <= 0:
-        evaluation = evaluate_board(board, color)
-        print(f"[Minimax] Depth 0 reached. Evaluation: {evaluation}")
-        return evaluation
+def get_mobility_score(board, color):
+    mobility_myColor = len(get_legal_moves(board, color))  # Mobilité du joueur
+    mobility_opponent = len(
+        get_legal_moves(board, "w" if color == "b" else "b")
+    )  # Mobilité de l'adversaire
 
-    if maximizing_player:
-        max_eval = float("-inf")
-        for move in get_legal_moves(board, color):
-            new_board = make_move(board, move)
-            eval = minimax(new_board, depth - 1, alpha, beta, False, color)
-            max_eval = max(max_eval, eval)
-            alpha = max(alpha, eval)
-            print(
-                f"[Maximizing] Move: {move}, Eval: {eval}, Alpha: {alpha}, Beta: {beta}"
-            )
-            if beta <= alpha:
-                print(f"[Pruning] Beta <= Alpha (Maximizing). Breaking.", alpha, beta)
-                break
-        print(f"[Returning] max_eval : ", max_eval)
-        return max_eval
-    else:
-        min_eval = float("inf")
-        opponent_color = "b" if color == "w" else "w"
-        for move in get_legal_moves(board, opponent_color):
-            new_board = make_move(board, move)
-            eval = minimax(new_board, depth - 1, alpha, beta, True, color)
-            min_eval = min(min_eval, eval)
-            beta = min(beta, eval)
-            print(
-                f"[Minimizing] Move: {move}, Eval: {eval}, Alpha: {alpha}, Beta: {beta}"
-            )
-            if beta <= alpha:
-                print(f"[Pruning] Beta <= Alpha (Minimizing). Breaking.", alpha, beta)
-                break
-        print(f"[Returning] min_eval : ", min_eval)
-        return min_eval
+    return mobility_myColor - mobility_opponent
+
+
+def evaluate_board(board, color):
+    # Valeur du matériel done get_material_value(board,color)
+    # Contrôle de l'espace evaluate_space_control
+    # Mobilité
+    # Structure des pions
+    # Sécurité du roi
+    # Couples de pièces
+    # Avantage positionnel
+    # Phase de jeu (début, milieu, fin)
+    # Menaces et tactiques
+    return (
+        get_material_value(board, color)
+        + evaluate_space_control(board, color)
+        + get_mobility_score(board, color)
+    )
+
+
+def evaluate_king_safety(board, color):
+    score = 0
+    king_pos = next(
+        ((i, j) for i in range(8) for j in range(8) if board[i, j] == f"k{color}"), None
+    )
+    if king_pos:
+        x, y = king_pos
+        # Bonus for pawns in front of the king
+        for dx in [-1, 0, 1]:
+            if 0 <= y + dx < 8:
+                if color == "W" and x > 0 and board[x - 1, y + dx] == f"p{color}":
+                    score += 10
+                elif color == "B" and x < 7 and board[x + 1, y + dx] == f"p{color}":
+                    score += 10
+    return score
+
+
+def evaluate_mobility(board, color):
+    return len(get_legal_moves(board, color))
+
+
+def get_capture_moves(board, color):
+    captures = []
+    for move in get_legal_moves(board, color):
+        start, end = move
+        if board[end] != "":
+            captures.append(move)
+    return captures
+
+
+def quiescence(board, alpha, beta, color, start_time, time_budget):
+    """Performs quiescence search to stabilize tactical evaluations."""
+    stand_pat = evaluate_board(board, color)  # Static evaluation of the position
+
+    # Alpha-beta pruning
+    if stand_pat >= beta:
+        return beta
+    if alpha < stand_pat:
+        alpha = stand_pat
+
+    if time.time() - start_time > time_budget * 0.9:
+        return stand_pat
+
+    # Generate all capture moves
+    capture_moves = get_capture_moves(board, color)
+
+    for move in capture_moves:
+        s, e, _ = make_move(board, move)
+        score = -quiescence(
+            board, -beta, -alpha, "w" if color == "b" else "b", start_time, time_budget
+        )
+        undo_move(board, move, e, s)
+
+        if score >= beta:
+            return beta
+        if score > alpha:
+            alpha = score
+
+    return alpha
+
+
+def find_king(color, board):
+    for x in range(board.shape[0] - 1):
+        for y in range(board.shape[1]):
+            if board[x, y] == "":
+                continue
+            if board[x, y][0] == "k" and board[x, y][1] == color:
+                return (x, y)
+    return (-1, -1)
+
+
+def is_check(board, color):
+    # Détermine si le joueur est en échec
+    king_pos = find_king(color, board)
+    if king_pos[0] == -1:
+        return True
+    opponent = "b" if color == "w" else "w"
+
+    # Vérifiez si une pièce ennemie peut attaquer le roi
+    for x in range(board.shape[0] - 1):
+        for y in range(board.shape[1]):
+            piece = board[x, y]
+            if piece != "" and piece.startswith(opponent):
+                # Vérifiez si une pièce ennemie peut attaquer la position du roi
+                legal_moves = get_legal_moves_for_piece(board, (x, y), opponent)
+                if king_pos in [t[1] for t in legal_moves]:
+                    return True
+    return False
+
+
+def negamax(board, depth, alpha, beta, color, myColor, start_time, time_budget):
+    """Negamax with quiescence search."""
+    if depth <= 0 or time.time() - start_time > time_budget * 0.9:
+        sc = (1 if color == myColor else -1) * evaluate_board(board, color)
+        print("[Evaluation] score :", sc, " with board : \n ", board)
+        return sc
+
+    # if is_check(board,color):
+    #   return (float("-inf") if color == myColor else float("inf"))
+
+    max_eval = float("-inf")
+    legal_moves = get_legal_moves(board, color)
+    if not legal_moves:  # No valid moves
+        return evaluate_board(board, myColor)  # Evaluate the current board state
+
+    for move in legal_moves:
+        s, e, _ = make_move(board, move)
+        eval = -negamax(
+            board,
+            depth - 1,
+            -beta,
+            -alpha,
+            "w" if color == "b" else "b",
+            myColor,
+            start_time,
+            time_budget,
+        )
+        undo_move(board, move, e, s)
+
+        max_eval = max(max_eval, eval)
+        alpha = max(alpha, max_eval)
+
+        if alpha >= beta:
+            break  # Beta cut-off
+
+    return max_eval
 
 
 def get_legal_moves(board, color):
@@ -173,55 +251,89 @@ def get_legal_moves(board, color):
                     moves.update(get_queen_moves(board, x, y, color))
                 elif piece_type == "k":
                     moves.update(get_king_moves(board, x, y, color))
-    return list(moves)
+    return moves
+
+
+def get_legal_moves_for_piece(board, position, color):
+    """
+    Retourne les mouvements légaux pour une pièce à une position donnée.
+    """
+    x, y = position
+    piece = board[x, y]
+    if not piece or piece[1] != color:
+        return []
+
+    piece_type = piece[0].lower()
+    if piece_type == "p":
+        return get_pawn_moves(board, x, y, color)
+    elif piece_type == "n":
+        return get_knight_moves(board, x, y, color)
+    elif piece_type == "b":
+        return get_bishop_moves(board, x, y, color)
+    elif piece_type == "r":
+        return get_rook_moves(board, x, y, color)
+    elif piece_type == "q":
+        return get_queen_moves(board, x, y, color)
+    elif piece_type == "k":
+        return get_king_moves(board, x, y, color)
+    return []
 
 
 def make_move(board, move):
-    new_board = board.copy()
     start, end = move
-    new_board[end] = new_board[start]
-    new_board[start] = ""
-    return new_board
+    endvalue = board[end]
+    startvalue = board[start]
+    board[end] = board[start]
+    board[start] = ""
+    return startvalue, endvalue, board
+
+
+def undo_move(board, move, extrav, endv):
+    start, end = move
+    board[start] = endv
+    board[end] = extrav
+    return board
 
 
 def get_pawn_moves(board, x, y, color):
-    moves = []
-    direction = -1 if color == "W" else 1
+    moves = set()
+    direction = 1
 
     # Mouvement simple
-    if is_valid_position(x + direction, y) and board[x + direction, y] == "":
-        moves.append(((x, y), (x + direction, y)))
+    if is_valid_position(x + direction, y, board) and board[x + direction, y] == "":
+        moves.add(((x, y), (x + direction, y)))
 
-        # Double mouvement depuis la position initiale
-        if (color == "W" and x == 6) or (color == "B" and x == 1):
-            if board[x + 2 * direction, y] == "":
-                moves.append(((x, y), (x + 2 * direction, y)))
+        """# Double mouvement depuis la position initiale
+        if (color == 'w' and x == 6) or (color == 'b' and x == 1):
+            if board[x + 2*direction, y] == '':
+                moves.add(((x, y), (x + 2*direction, y)))
+        """
 
     # Captures en diagonale
     for dy in [-1, 1]:
         new_x, new_y = x + direction, y + dy
         if (
-            is_valid_position(new_x, new_y)
+            is_valid_position(new_x, new_y, board)
             and board[new_x, new_y] != ""
             and board[new_x, new_y][1] != color
         ):
-            moves.append(((x, y), (new_x, new_y)))
+            moves.add(((x, y), (new_x, new_y)))
 
     return moves
 
 
 def get_rook_moves(board, x, y, color):
-    moves = []
+    moves = set()
     directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
     for dx, dy in directions:
         for i in range(1, 8):
             new_x, new_y = x + i * dx, y + i * dy
-            if not is_valid_position(new_x, new_y):
+            if not is_valid_position(new_x, new_y, board):
                 break
             if board[new_x, new_y] == "":
-                moves.append(((x, y), (new_x, new_y)))
+                moves.add(((x, y), (new_x, new_y)))
             elif board[new_x, new_y][1] != color:
-                moves.append(((x, y), (new_x, new_y)))
+                moves.add(((x, y), (new_x, new_y)))
                 break
             else:
                 break
@@ -229,7 +341,7 @@ def get_rook_moves(board, x, y, color):
 
 
 def get_knight_moves(board, x, y, color):
-    moves = []
+    moves = set()
     knight_moves = [
         (2, 1),
         (1, 2),
@@ -242,25 +354,25 @@ def get_knight_moves(board, x, y, color):
     ]
     for dx, dy in knight_moves:
         new_x, new_y = x + dx, y + dy
-        if is_valid_position(new_x, new_y) and (
+        if is_valid_position(new_x, new_y, board) and (
             board[new_x, new_y] == "" or board[new_x, new_y][1] != color
         ):
-            moves.append(((x, y), (new_x, new_y)))
+            moves.add(((x, y), (new_x, new_y)))
     return moves
 
 
 def get_bishop_moves(board, x, y, color):
-    moves = []
+    moves = set()
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
     for dx, dy in directions:
         for i in range(1, 8):
             new_x, new_y = x + i * dx, y + i * dy
-            if not is_valid_position(new_x, new_y):
+            if not is_valid_position(new_x, new_y, board):
                 break
             if board[new_x, new_y] == "":
-                moves.append(((x, y), (new_x, new_y)))
+                moves.add(((x, y), (new_x, new_y)))
             elif board[new_x, new_y][1] != color:
-                moves.append(((x, y), (new_x, new_y)))
+                moves.add(((x, y), (new_x, new_y)))
                 break
             else:
                 break
@@ -271,18 +383,20 @@ def get_bishop_moves(board, x, y, color):
 
 
 def get_queen_moves(board, x, y, color):
-    return get_rook_moves(board, x, y, color) + get_bishop_moves(board, x, y, color)
+    a = get_rook_moves(board, x, y, color)
+    a.update(get_bishop_moves(board, x, y, color))
+    return a
 
 
 def get_king_moves(board, x, y, color):
-    moves = []
+    moves = set()
     king_moves = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
     for dx, dy in king_moves:
         new_x, new_y = x + dx, y + dy
-        if is_valid_position(new_x, new_y) and (
+        if is_valid_position(new_x, new_y, board) and (
             board[new_x, new_y] == "" or board[new_x, new_y][1] != color
         ):
-            moves.append(((x, y), (new_x, new_y)))
+            moves.add(((x, y), (new_x, new_y)))
     # Note: Cette implémentation ne prend pas en compte le roque
     return moves
 
@@ -297,20 +411,34 @@ def chess_bot2(player_sequence, board, time_budget, **kwargs):
 
     best_move = None
     best_score = float("-inf")
+    alpha = float("-inf")
+    beta = float("inf")
+    best_moves = []
+    best_scores = []
     legal_moves = get_legal_moves(board, color)
     while time.time() - start_time < time_budget * 0.95:
         for move in legal_moves:
-            new_board = make_move(board, move)
-            eval = minimax(
-                new_board, depth - 1, float("-inf"), float("inf"), False, color
+            s, e, _ = make_move(board, move)
+            eval = -negamax(
+                board,
+                depth - 1,
+                float("-inf"),
+                float("inf"),
+                "w" if color == "b" else "b",
+                color,
+                start_time,
+                time_budget,
             )
-            if eval > best_score:
+            undo_move(board, move, e, s)
+            if eval >= best_score:
                 best_score = eval
                 best_move = move
+                best_moves.append(move)
+                best_scores.append(eval)
         depth += 1
-        if depth >= 5:
-            break
-        print("sah2")
+
+    for i in range(0, len(best_scores)):
+        print("move : ", best_moves[i], " score: ", best_scores[i], "\n")
 
     print(f"[Chess Bot] Best move: {best_move}, Score: {best_score}")
     return best_move if best_move else ((0, 0), (0, 0))
