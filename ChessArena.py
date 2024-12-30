@@ -369,6 +369,7 @@ class ChessArena(QtWidgets.QWidget):
 
     def start(self):
         self.board = self.load_board("Data/maps/default.brd")
+        self.board = self.load_board("Data/maps/default.brd")
         self.setup_board()
         self.setup_players()
         self.chess_scene.update()
