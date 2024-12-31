@@ -20,7 +20,98 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
     start_time = time.time()
     possible_move = []
     color = player_sequence[1]
-    piece_values = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 200}
+    piece_values = {
+        "p": 10,
+        "n": 30,
+        "b": 30,
+        "r": 50,
+        "q": 90,
+        "k": 900,
+    }
+
+    pawnEval = [
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0],
+        [1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 1.0, 1.0],
+        [0.5, 0.5, 1.0, 2.5, 2.5, 1.0, 0.5, 0.5],
+        [0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0],
+        [0.5, -0.5, -1.0, 0.0, 0.0, -1.0, -0.5, 0.5],
+        [0.5, 1.0, 1.0, -2.0, -2.0, 1.0, 1.0, 0.5],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    ]
+
+    knightEval = [
+        [-5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0],
+        [-4.0, -2.0, 0.0, 0.0, 0.0, 0.0, -2.0, -4.0],
+        [-3.0, 0.0, 1.0, 1.5, 1.5, 1.0, 0.0, -3.0],
+        [-3.0, 0.5, 1.5, 2.0, 2.0, 1.5, 0.5, -3.0],
+        [-3.0, 0.0, 1.5, 2.0, 2.0, 1.5, 0.0, -3.0],
+        [-3.0, 0.5, 1.0, 1.5, 1.5, 1.0, 0.5, -3.0],
+        [-4.0, -2.0, 0.0, 0.5, 0.5, 0.0, -2.0, -4.0],
+        [-5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0],
+    ]
+
+    bishopEval = [
+        [-2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0],
+        [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+        [-1.0, 0.0, 0.5, 1.0, 1.0, 0.5, 0.0, -1.0],
+        [-1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, -1.0],
+        [-1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, -1.0],
+        [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0],
+        [-1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, -1.0],
+        [-2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0],
+    ]
+
+    rookEval = [
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5],
+        [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
+        [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
+        [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
+        [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
+        [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
+        [0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0],
+    ]
+
+    evalQueen = [
+        [-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0],
+        [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+        [-1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0],
+        [-0.5, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -0.5],
+        [0.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -0.5],
+        [-1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0],
+        [-1.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, -1.0],
+        [-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0],
+    ]
+
+    kingEval = [
+        [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
+        [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
+        [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
+        [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
+        [-2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0],
+        [-1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -1.0],
+        [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0],
+        [2.0, 3.0, 1.0, 0.0, 0.0, 1.0, 3.0, 2.0],
+    ]
+
+    def getPieceEval(piece, x, y):
+        if piece == "":
+            return 0
+        value = piece_values.get(piece[0], 0)
+        if piece == "p":
+            return value + pawnEval[x][y]
+        elif piece == "n":
+            return value + knightEval[x][y]
+        elif piece == "b":
+            return value + bishopEval[x][y]
+        elif piece == "r":
+            return value + rookEval[x][y]
+        elif piece == "q":
+            return value + evalQueen[x][y]
+        elif piece == "k":
+            return value + kingEval[x][y]
+        return value
 
     def evaluate_move(start, end, board, path, color):
         """
@@ -41,7 +132,7 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
         else:
             piece = board[x, y][0]
             if piece[-1] != color:
-                score = 10 + piece_values.get(piece[0], 0)
+                score = 10 + getPieceEval(piece, x, y)
 
         # Penalty for repetitive moves
         if len(path) > 2 and path[-2] == [end, start]:
@@ -58,16 +149,22 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
         if is_king_in_check(board, color) and not is_king_in_check(temp_board, color):
             score += 30  # Bonus for escaping check
 
+        # Incentive for capturing the opponent's king
+        if board[x, y] != "" and board[x, y][1] != color and board[x, y][0] == "k":
+            score += 100  # High bonus for capturing the opponent's king
+
         # Bonus for controlling the center
         center_squares = [(3, 3), (3, 4), (4, 3), (4, 4)]
         for x, y in center_squares:
             if board[x, y] != "" and board[x, y][-1] == color:
                 score += 0.5
 
+        # Bonus for generating more possible moves
         if board[x, y] != "" and board[x, y][1] == color:
             moves = generate_move(x, y, color, board)
-            score += len(moves) * 0.1
+            score += len(moves) * 0.1  # Small bonus for each possible move
 
+        # Add a small random factor to the score to introduce slight variability
         return score + random.uniform(-0.1, 0.1)
 
     def findPath(path, board, depth, alpha, beta, maximizing_player):
