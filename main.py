@@ -77,6 +77,3 @@ if __name__ == "__main__":
     print("Starting Chess Arena...")
     app = ChessApp()
     app.start()
-
-    optimal_time_budget = find_optimal_time_budget()
-    print(f"The optimal time budget is: {optimal_time_budget}")

@@ -206,7 +206,9 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                 board[end[0]][end[1]] = original_start
                 board[start[0]][start[1]] = ""
 
-                score, _ = findPath(path + [move], board, new_depth, alpha, beta, False)
+                score, _ = findPath(
+                    path + [move], board, new_depth, alpha, beta, not maximizing_player
+                )
 
                 board[start[0]][start[1]] = original_start
                 board[end[0]][end[1]] = original_end
@@ -239,16 +241,18 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                 board[end[0]][end[1]] = original_start
                 board[start[0]][start[1]] = ""
 
-                score, _ = findPath(path + [move], board, new_depth, alpha, beta, False)
+                score, _ = findPath(
+                    path + [move], board, new_depth, alpha, beta, maximizing_player
+                )
 
                 board[start[0]][start[1]] = original_start
                 board[end[0]][end[1]] = original_end
 
-                if score > max_score:
-                    max_score = score
+                if score < min_score:
+                    min_score = score
                     best_move = move
 
-                beta = min(beta, max_score)
+                beta = min(beta, min_score)
                 if beta <= alpha:
                     break
 
