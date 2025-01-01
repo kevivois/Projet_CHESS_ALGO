@@ -330,7 +330,7 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                 while is_within_board((new_x, new_y), board):
                     if board[new_x, new_y] == "":
                         moves.append([[x, y], [new_x, new_y]])
-                    elif board[new_x, new_y][1] != color:
+                    elif board[new_x, new_y] == "" and board[new_x, new_y][1] != color:
                         moves.append([[x, y], [new_x, new_y]])
                         break
                     else:
