@@ -137,16 +137,18 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
         score = 0
         for x in range(board.shape[0]):
             for y in range(board.shape[1]):
-                if board[x,y] != "":
-                    t = getPieceEval(board[x,y][0],x,y)
-                    score += (1 if board[x,y][1] == color else -1) * t
+                if board[x, y] != "":
+                    t = getPieceEval(board[x, y][0], x, y)
+                    score += (1 if board[x, y][1] == color else -1) * t
                     if board[x, y][1] == color:
                         moves = generate_move(x, y, color, board)
-                        for start,end in moves:
-                            if board[end[0],end[1]] != '':
-                                score += 2*getPieceEval(board[end[0],end[1]][0], end[0], end[1])
-                        score += len(moves) * 0.1  # Small bonus for each possible move 
-        
+                        for start, end in moves:
+                            if board[end[0], end[1]] != "":
+                                score += 2 * getPieceEval(
+                                    board[end[0], end[1]][0], end[0], end[1]
+                                )
+                        score += len(moves) * 0.1  # Small bonus for each possible move
+
         # Penalty for repetitive moves
         if len(path) > 2 and path[-2] == path[-1][::-1]:
             score -= 2
@@ -155,9 +157,6 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
 
         # Add a small random factor to the score to introduce slight variability
         return score + random.uniform(-0.1, 0.1)
-
-
-
 
     def quiescence_search(board, alpha, beta, evaluate, is_terminal, generate_moves):
         """
@@ -176,7 +175,7 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
         """
         # Evaluate the current position statically
         stand_pat = evaluate(board)
-        
+
         # If the static evaluation is outside the alpha-beta bounds, return it
         if stand_pat >= beta:
             return beta
@@ -184,44 +183,47 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
             alpha = stand_pat
 
         # Generate all tactical moves (e.g., captures)
-        moves = generate_move(board,myColor)
+        moves = generate_move(board, myColor)
 
         for move in moves:
-            new_board = make_move(board,move)
-            if is_king_in_check(new_board,myColor):
+            new_board = make_move(board, move)
+            if is_king_in_check(new_board, myColor):
                 continue  # Skip terminal positions
 
             # Recursively evaluate the position after the move
-            score = -quiescence_search(new_board, -beta, -alpha, evaluate, is_terminal, generate_moves)
+            score = -quiescence_search(
+                new_board, -beta, -alpha, evaluate, is_terminal, generate_moves
+            )
             if score >= beta:
                 return beta
             if score > alpha:
                 alpha = score
         return alpha
-    
 
-    def make_move(board,move):
-        start,end = move
+    def make_move(board, move):
+        start, end = move
         new_board = board.copy()
-        new_board[end[0],end[1]] = new_board[start[0],start[1]]
-        new_board[start[0],start[1]] = ''
+        new_board[end[0], end[1]] = new_board[start[0], start[1]]
+        new_board[start[0], start[1]] = ""
         return new_board
-    
-    def sort_immediate_moves(board,moves,color):
-        return sorted(moves,key=lambda m: pre_evaluate_move(board,m,color),reverse=True)
-    
-    def pre_evaluate_move(board,move,color):
-        start,end = move
-        piece_start = board[start[0],start[1]]
-        piece_end = board[end[0],end[1]]
+
+    def sort_immediate_moves(board, moves, color):
+        return sorted(
+            moves, key=lambda m: pre_evaluate_move(board, m, color), reverse=True
+        )
+
+    def pre_evaluate_move(board, move, color):
+        start, end = move
+        piece_start = board[start[0], start[1]]
+        piece_end = board[end[0], end[1]]
         if piece_end == "":
             return 0
-        value = getPieceEval(piece_start[0],start[0],start[1]) - getPieceEval(piece_end[0],end[0],end[1])
+        value = getPieceEval(piece_start[0], start[0], start[1]) - getPieceEval(
+            piece_end[0], end[0], end[1]
+        )
         return (-1 if color == piece_start[1] else 1) * value
 
-
-
-    def findPath(board, depth, alpha, beta, maximizing_player,path=None):
+    def findPath(board, depth, alpha, beta, maximizing_player, path=None):
         if path == None:
             path = []
         """
@@ -235,20 +237,29 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
         :param maximizing_player: Boolean indicating if the current player is maximizing.
         :return: The best score and the corresponding move as a tuple.
         """
-        actual_color = myColor if maximizing_player else ("b" if myColor == "w" else "w")
+        actual_color = (
+            myColor if maximizing_player else ("b" if myColor == "w" else "w")
+        )
         if depth == 0 or time.time() - start_time > time_budget * 0.9:
-            score = evaluate_move(
-                board,
-                path,
-                actual_color
-            ) 
-            b = board[path[-1][-1][0],path[-1][-1][1]]
-            print("[Evaluation] moving "+ actual_color + " " + CHESS_PIECES_NAMES.get(b[0] if b != "" else "","none")  + " from " + str(path[-1][0]) + " to " +str(path[-1][1])," | score : ",score)
+            score = evaluate_move(board, path, actual_color)
+            b = board[path[-1][-1][0], path[-1][-1][1]]
+            """ print(
+                "[Evaluation] moving "
+                + actual_color
+                + " "
+                + CHESS_PIECES_NAMES.get(b[0] if b != "" else "", "none")
+                + " from "
+                + str(path[-1][0])
+                + " to "
+                + str(path[-1][1]),
+                " | score : ",
+                score,
+            ) """
             return score, path[-1] if path else ((0, 0), (0, 0))
-        
-        moves = generate_all_moves(board,actual_color)
 
-        moves = sort_immediate_moves(board,moves,actual_color)
+        moves = generate_all_moves(board, actual_color)
+
+        moves = sort_immediate_moves(board, moves, actual_color)
 
         if maximizing_player:
 
@@ -260,8 +271,15 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                 new_depth = depth - 1
                 if board[end[0], end[1]] != "":
                     new_depth += 1
-                new_board = make_move(board,move)
-                score, _ = findPath(new_board, new_depth, alpha, beta,not maximizing_player,path + [move])
+                new_board = make_move(board, move)
+                score, _ = findPath(
+                    new_board,
+                    new_depth,
+                    alpha,
+                    beta,
+                    not maximizing_player,
+                    path + [move],
+                )
 
                 if score > max_score:
                     max_score = score
@@ -283,9 +301,11 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                 if board[end[0], end[1]] != "":
                     new_depth += 1
 
-                new_board = make_move(board,move)
+                new_board = make_move(board, move)
 
-                score, _ = findPath(new_board, new_depth, alpha, beta,maximizing_player,path + [move])
+                score, _ = findPath(
+                    new_board, new_depth, alpha, beta, maximizing_player, path + [move]
+                )
 
                 if score < min_score:
                     min_score = score
@@ -381,8 +401,8 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                     new_x, new_y = new_x + dx, new_y + dy
 
         return moves
-    
-    def generate_all_moves(board,color):
+
+    def generate_all_moves(board, color):
         result = []
         for x in range(board.shape[0]):
             for y in range(board.shape[1]):
@@ -417,10 +437,10 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
                     if any(move[1] == king_pos for move in moves):
                         return True
         return False
-    
-    '''if not possible_move:
+
+    """if not possible_move:
         return (0, 0), (0, 0)
-    '''
+    """
 
     random.shuffle(possible_move)
 
@@ -441,9 +461,11 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
         depth = 5
     bestMoveScore = float("-inf")
     bestMove = None
-    for m in sort_immediate_moves(board,generate_all_moves(board,myColor),myColor):
-        new_board = make_move(board,m)
-        score, best_move = findPath(new_board, depth, float("-inf"), float("inf"), True,[m])
+    for m in sort_immediate_moves(board, generate_all_moves(board, myColor), myColor):
+        new_board = make_move(board, m)
+        score, best_move = findPath(
+            new_board, depth, float("-inf"), float("inf"), True, [m]
+        )
         if score > bestMoveScore:
             bestMoveScore = score
             bestMove = best_move
@@ -454,4 +476,4 @@ def chess_bot1(player_sequence, board, time_budget, **kwargs):
 
 
 #   Example how to register the function
-register_chess_bot("vz-m", chess_bot1)
+register_chess_bot("vz_k", chess_bot1)
