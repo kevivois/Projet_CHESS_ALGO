@@ -9,7 +9,7 @@ from Bots import *
 import numpy as np
 import time
 import random
-from Bots.vz_m import chess_bot1  # Add this line to import vz_m
+from Bots.vz_m import chess_bot  # Add this line to import vz_m
 
 
 #   Wrap up for QApplication
@@ -210,10 +210,10 @@ class ChessArena(QtWidgets.QWidget):
     def end_game(self, winner):
         if winner is None:
             self.add_system_message("# Match ended in a draw")
-            optimal_time_budget = self.find_optimal_time_budget()
+            '''optimal_time_budget = self.find_optimal_time_budget()
             self.add_system_message(
                 f"The optimal time budget is: {optimal_time_budget}"
-            )
+            )'''
         else:
             self.add_system_message("# " + str(COLOR_NAMES[winner]) + " won the match")
 
@@ -242,7 +242,7 @@ class ChessArena(QtWidgets.QWidget):
 
         # Simulate a game with the given time budget
         while time.time() - start_time < 10:  # Run the simulation for 10 seconds
-            move = chess_bot1(player_sequence, board, time_budget)
+            move = chess_bot(player_sequence, board, time_budget)
             # Apply the move to the board (this is a simplified example)
             start, end = move
             board[end[0], end[1]] = board[start[0], start[1]]
@@ -344,7 +344,7 @@ class ChessArena(QtWidgets.QWidget):
 
             for name in CHESS_BOT_LIST:
                 choice.addItem(name, CHESS_BOT_LIST[name])
-            choice.setCurrentIndex(2)
+            choice.setCurrentIndex(choice.__len__() -1)
 
             self.players_AI_choice[color] = choice
             self.playersList.addWidget(choice)

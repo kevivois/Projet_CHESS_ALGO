@@ -4,7 +4,6 @@ import time
 import random
 
 from ChessArena import ChessArena, ChessApp
-from Bots.vz_m import chess_bot1
 
 
 if __name__ == "__main__":
