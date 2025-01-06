@@ -31,13 +31,13 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
     # possible_move = []
     currentPlayerColor = player_sequence[1]
     piece_values = {
-        "p": 100,  
-        "n": 320,  
-        "b": 330,  
-        "r": 500,
-        "q": 900,
-        "k": 20000,  
-    }
+            'r': 500,    # Tour
+            'n': 300,    # Cavalier
+            'b': 300,    # Fou
+            'q': 900,    # Reine
+            'k': 10000,  # Roi
+            'p': 50     # Pion
+        }
 
     def get_board_hash(board):
         return hash(board.tobytes())
@@ -109,84 +109,275 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
     ]
 
     
-    def evaluate_center_control(board,color):
-        score = 0
-        center_squares = [(3, 3), (3, 4), (4, 3), (4, 4)]
-        for x, y in center_squares:
-            piece = board[x, y]
-            if piece != "":
-                if piece[1] == color:
-                    score += 5
-                else:
-                    score -= 5
-        return score
+    def get_piece_value(piece,color,x,y):
+        value = piece_values.get(piece,0)
+        matrix = []
+        if piece == "p":
+            matrix= pawnEval
+        elif piece == "r":
+            matrix= rookEval
+        elif piece == "n":
+            matrix= knightEval
+        elif piece == 'b':
+            matrix= bishopEval
+        elif piece == "k":
+            matrix= knightEval
+        elif piece == "q":
+            matrix= evalQueen
+        if color != currentPlayerColor:
+            matrix = matrix[::-1]
+        return  value + matrix[x][y]
+            
+
+
+
+    def generate_move(x,y,color,board):
+        deplacements = []
+        piece = board[x, y]
+
+        if piece == "" or piece[1] != color:
+            return []
+        else:
+            if piece == 'p':  # Pion
+                    moves = pion(x, y, board, color)
+                    deplacements = [((x, y), (nx, ny)) for nx, ny in moves]
+            elif piece == 'n':  # Cavalier
+                moves = cavalier(x, y, board, color)
+                deplacements = [((x, y, ),(nx, ny)) for nx, ny in moves]
+            elif piece == 'k':  # Roi
+                moves = roi(x, y, board, color)
+                deplacements = [((x, y), (nx, ny)) for nx, ny in moves]
+            elif piece == 'r':  # Tour
+                moves = tour(x, y, board, color)
+                deplacements = [((x, y), (nx, ny)) for nx, ny in moves]
+            elif piece == 'b':  # Fou
+                moves = fou(x, y, board, color)
+                deplacements = [((x, y), (nx, ny)) for nx, ny in moves]
+            elif piece == 'q':  # Reine
+                moves = reine(x, y, board, color)
+                deplacements = [((x, y),( nx, ny)) for nx, ny in moves]
+        return deplacements
+
     
-
-
-    def get_move_count(board):
-        sum(1 for row in board for piece in row if piece != '')
-
-    def evaluate_board(board, color):
+    def evaluate_development(board, color):
         score = 0
+        back_rank = 0 if color == currentPlayerColor else 7
+        for y in range(8):
+            piece = board[back_rank, y]
+            if piece != "" and piece[1] == color:
+                if piece[0] == 'n':  # Cavalier
+                    score -= 100
+                elif piece[0] == 'b':  # Fou
+                    score -= 100
+                elif piece[0] == 'r':  # Tour
+                    score -= 100
+                elif piece[0] == 'q':  # Dame
+                    score -= 50
+    
+        return score
+
+
+
+        
+
+
+    def evaluate_threats(board, color):
+        threat_score = 0
+        opponent_color = 'b' if color == 'w' else 'w'
+        
+        for x in range(8):
+            for y in range(8):
+                if board[x, y] != "" and board[x, y][1] == color:
+                    moves = generate_move(x, y, color, board)
+                    for move in moves:
+                        target_x, target_y = move[1]
+                        target_piece = board[target_x, target_y]
+                        if target_piece != "" and target_piece[1] == opponent_color:
+                            threat_score += get_piece_value(target_piece[0],target_piece[1],x,y) * 0.1
+        
+        return threat_score
+
+
+    def evaluate_captures(board, color):
+        bonus = 0
         for x in range(board.shape[0]):
             for y in range(board.shape[1]):
-                if board[x, y] != "":
-                    piece = board[x,y]
-                    piece_type = piece[0]
-                    piece_color = piece[1]
-                
-                    
-                    # Valeur de base + valeur positionnelle
-                    position_score = 0
-                    if piece_type == 'p':
-                        position_score = pawnEval[x][y]
-                    elif piece_type == 'n':
-                        position_score = knightEval[x][y]
-                    elif piece_type == 'b':
-                        position_score = bishopEval[x][y]
-                    elif piece_type == 'r':
-                        position_score = rookEval[x][y]
-                    elif piece_type == 'q':
-                        position_score = evalQueen[x][y]
-                    elif piece_type == 'k':
-                        position_score = kingEval[x][y]
-                    
-                    # Valeur totale de la pièce
-                    value = piece_values.get(piece_type, 0) + position_score
-
-                    capture_bonus = get_capture_bonus(board, x, y, color)
-                    value += capture_bonus
-                    
-                    # Crucial : -1 pour les pièces adverses
-                    multiplier = 1 if piece_color == color else -1
-                    score += value * multiplier
-
-        score += evaluate_center_control(board,color) * 5
-
-        score += evaluate_pawn_threats(board,color) * 5
-
-        mobility = len(generate_all_moves(board, color))
-
-        score += mobility * 0.1
-    
-        return score
-    
-
-
-    def get_capture_bonus(board, x, y, color):
-        bonus = 0
-        piece = board[x, y]
-        if piece[1] != color:  # Si c'est une pièce adverse
-            attackers = count_attackers(board, x, y, color)
-            if attackers > 0:
-                piece_value = piece_values.get(piece[0], 0)
-                bonus = piece_value * 2 * attackers  # 10% de bonus par attaquant
-                if piece[0] == 'p':
-                    bonus *= 2  # Double bonus pour la capture de pions
+                if board[x, y] != "" and board[x, y][1] != color:
+                    attackers = count_attackers(board, x, y, color)
+                    if attackers > 0:
+                        piece_value = piece_values.get(board[x, y][0], 0)
+                        bonus += piece_value * 0.1 * attackers
         return bonus
     
     def count_attackers(board, x, y, color):
-        return sum(1 for move in generate_all_moves(board, color) if move[0] == (x, y))
+        return sum(1 for move in generate_moves(board, color) if move[0] == (x, y))
+
+
+    
+
+    def is_king_safe(board,color):
+        """
+        Vérifie si le roi est en sécurité.
+        :param color_sign: +1 pour les blancs, -1 pour les noirs.
+        :param Bo: Plateau.
+        :return: True si le roi est en sécurité, False sinon.
+        """
+        king_position = None
+        for x in range(8):
+            for y in range(8):
+                if board[x,y] == 'k'+color:
+                    king_position = (x,y)
+                    break
+        if not king_position:
+            return False  # Roi inexistant (cas rare)
+
+        return not is_king_in_check(board,color,king_position)
+    
+    def is_king_in_check(board,color,king_position):
+        opponent_moves = generate_moves(board,"w" if color == "b" else "b")
+        for start,end in opponent_moves:
+            if end[0] == king_position[0] and end[1] == king_position[1]:
+                return True
+        return False
+
+    def is_checkmate(board,color): 
+        return not is_king_safe(board,"w" if color == "b" else "b")
+    
+    def evaluate_board(board, color):
+        MATE_SCORE = 100000
+        score = 0
+        # Évaluation existante des pièces
+        for x in range(8):
+            for y in range(8):
+                piece = board[x, y]
+                if piece != "":
+                    piece_value = get_piece_value(piece[0],piece[1],x,y)
+                    if piece[1] == color:
+                        score += piece_value
+                    else:
+                        score -= piece_value
+
+
+        if is_checkmate(board,color):  # Mat contre l'adversaire
+            return MATE_SCORE
+        if is_checkmate(board,"w" if color == 'b' else 'b'):  # Mat contre nous
+                return -MATE_SCORE
+            
+        center_positions = [(3, 3), (3, 4), (4, 3), (4, 4)]
+        for x, y in center_positions:
+            piece = board[x,y]
+            if piece == "":
+                continue
+            if piece[1] == color:
+                score += 50  # Bonus pour contrôler le centre
+            else:  # Pièce ennemie au centre
+                score -= 50  # Malus si l'adversaire contrôle le centre
+        
+        # Bonus pour les captures potentielles
+        score += 3*evaluate_captures(board, color)
+
+        score += 2 * len(generate_moves(board,color))
+        threat_score = 2*evaluate_threats(board, color)
+
+        score += threat_score
+
+        score += evaluate_development(board, color)
+
+                          
+        if is_king_safe(board,color):
+            score += 400  # Bonus pour un roi en sécurité)
+        
+        return score
+    def evaluate_captures(board, color):
+        capture_score = 0
+        for x in range(8):
+            for y in range(8):
+                piece = board[x, y]
+                if piece != "" and piece[1] != color:
+                    attackers = count_attackers(board, x, y, color)
+                    if attackers > 0:
+                        capture_score += get_piece_value(piece[0],piece[1],x,y) * 1 * attackers
+        return capture_score
+    
+
+    def sort_moves(board, moves, color):
+        def move_score(move):
+            start, end = move
+            piece = board[start[0], start[1]]
+            target = board[end[0], end[1]]
+            score = 0
+            
+            # Priorité aux captures
+            if target != "":
+                score += 1000 + get_piece_value(target[0],target[1],end[0],end[1]) - get_piece_value(piece[0],piece[1],start[0],start[1])
+
+            
+                # Bonus pour les mouvements vers le centre
+            if end[0] in [3, 4] and end[1] in [3, 4]:
+                score += 75  # Augmenter le bonus pour le contrôle du centre
+            
+            # Bonus pour le développement des pièces
+            if piece[0] in ['n', 'b', 'r'] and start[0] in [0, 7]:
+                score += 50  # Bonus pour développer les pièces de la rangée arrière
+            
+            return score
+
+    
+        return sorted(moves, key=move_score, reverse=True)
+
+
+
+    
+
+    def is_pawn_protected(x, y, board,color):
+        """
+        Vérifie si un pion est protégé par un autre pion.
+        :param x: Coordonnée x du pion.
+        :param y: Coordonnée y du pion.
+        :param Bo: Plateau.
+        :param color_sign: +1 pour les blancs, -1 pour les noirs.
+        :return: True si le pion est protégé, False sinon.
+        """
+        for dx, dy in [(1, -1), (1, 1)] if color == currentPlayerColor else [(-1, -1), (-1, 1)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < 8 and 0 <= ny < 8 and board[nx,ny] == 'p'+color:
+                return True
+        return False
+    
+    def is_pawn_isolated(x, y, board):
+        """
+        Vérifie si un pion est isolé.
+        :param x: Coordonnée x du pion.
+        :param y: Coordonnée y du pion.
+        :param Bo: Plateau.
+        :return: True si le pion est isolé, False sinon.
+        """
+        for dy in [-1, 1]:  # Colonnes adjacentes
+            ny = y + dy
+            if 0 <= ny < 8:
+                for nx in range(8):  # Vérifie toute la colonne adjacente
+                    if board[nx,ny] == board[x,y]:
+                        return False
+        return True
+    
+
+
+    def is_pawn_passed(x, y, board,color):
+        """
+        Vérifie si un pion est passé.
+        :param x: Coordonnée x du pion.
+        :param y: Coordonnée y du pion.
+        :param Bo: Plateau.
+        :param color_sign: +1 pour les blancs, -1 pour les noirs.
+        :return: True si le pion est passé, False sinon.
+        """
+        direction = 1 if color == currentPlayerColor else -1
+        for nx in range(x + direction, 8 if color == currentPlayerColor == 1 else -1, direction):
+            for dy in [-1, 0, 1]:
+                ny = y + dy
+                if board[nx,nx] != "" and board[nx,ny][1] != color and board[nx,ny][0] == 'p':
+                    return False  # Pion adverse peut bloquer ou capturer
+        return True
         
 
     
@@ -199,9 +390,10 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
         
 
     def minimaxRoot(depth, board, isMaximizing,maximizing_color):
-        newGameMoves = generate_all_moves(
+        newGameMoves = generate_moves(
             board, maximizing_color
         )
+        print(newGameMoves,"moves__")
         bestScore = float("-inf")
         bestMove = None
 
@@ -210,12 +402,13 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
             try:
 
                 score = minimax(
-                    new_board, depth - 1, float("-inf"), float("inf"),isMaximizing,currentPlayerColor
+                    new_board, depth - 1, float("-inf"), float("inf"),isMaximizing,maximizing_color
                 )
                 if score >= bestScore:
                     bestScore = score
                     bestMove = move
-            except:
+            except Exception as e:
+                print(str(e))
                 break
         print_log(f"[Chess Bot] Best move: {bestMove}, Score: {bestScore}")
         return bestScore,bestMove
@@ -223,31 +416,14 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
     def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
         if time.time() - start_time > time_budget * 0.95:  # Utilisez 95% du temps alloué
             raise TimeoutError("Time limit exceeded")
-        board_hash = get_board_hash(board)
-        if board_hash in transposition_table:
-            entry = transposition_table[board_hash]
-            if entry['depth'] >= depth:
-                if entry['flag'] == 'EXACT':
-                    return entry['score']
-                elif entry['flag'] == 'LOWERBOUND' and entry['score'] >= beta:
-                    return entry['score']
-                elif entry['flag'] == 'UPPERBOUND' and entry['score'] <= alpha:
-                    return entry['score']
 
         if depth == 0 or time.time() - start_time > time_budget * 0.9:
             score = evaluate_board(board, maximizing_color)
-            transposition_table.update({
-            board_hash: {
-                'score': score,
-                'depth': depth,
-                'flag': 'EXACT'
-            }
-        })
             print_log(f"Leaf evaluation at depth {depth}: {score}")
             return score
 
         current_color = maximizing_color if maximizing_player else ('b' if maximizing_color == 'w' else 'w')
-        moves = generate_all_moves(board, current_color)
+        moves = generate_moves(board, current_color)
         
         best_score = float('-inf') if maximizing_player else float('inf')
         
@@ -267,20 +443,6 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
             if beta <= alpha:
                 print_log(f"Pruning at depth {depth}")
                 break
-
-            flag = 'EXACT'
-        if best_score <= alpha:
-            flag = 'UPPERBOUND'
-        elif best_score >= beta:
-            flag = 'LOWERBOUND'
-
-        transposition_table.update({
-            board_hash: {
-                'score': best_score,
-                'depth': depth,
-                'flag': flag
-            }
-        })
         return best_score
     
     def evaluate_pawn_threats(board,color):
@@ -309,110 +471,135 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
         """
         return 0 <= pos[0] < board.shape[0] and 0 <= pos[1] < board.shape[1]
 
-    def generate_move(x, y, color, board):
+    def generate_moves(board, color):
+        """
+        Génère tous les déplacements possibles pour un joueur donné.
+        :param Bo: Plateau
+        :param color_sign: +1 pour les blancs, -1 pour les noirs
+        :return: Liste des déplacements possibles
+        """
+        deplacements = []
+        for x in range(8):
+            for y in range(8):
+                if board[x,y] == "":
+                    continue
+                piece = board[x,y][0]
+                clr = board[x,y][1]
+                if color == clr:
+                    if piece == 'p':  # Pion
+                        moves = pion(x, y, board, color)
+                        deplacements.extend([((x, y), (nx, ny)) for nx, ny in moves])
+                    elif piece == 'n':  # Cavalier
+                        moves = cavalier(x, y, board, color)
+                        deplacements.extend([((x, y, ),(nx, ny)) for nx, ny in moves])
+                    elif piece == 'k':  # Roi
+                        moves = roi(x, y, board, color)
+                        deplacements.extend([((x, y), (nx, ny)) for nx, ny in moves])
+                    elif piece == 'r':  # Tour
+                        moves = tour(x, y, board, color)
+                        deplacements.extend([((x, y), (nx, ny)) for nx, ny in moves])
+                    elif piece == 'b':  # Fou
+                        moves = fou(x, y, board, color)
+                        deplacements.extend([((x, y), (nx, ny)) for nx, ny in moves])
+                    elif piece == 'q':  # Reine
+                        moves = reine(x, y, board, color)
+                        deplacements.extend([((x, y),( nx, ny)) for nx, ny in moves])
+
+        return sort_moves(board,deplacements,color)
+    
+
+    def cavalier(pos_x, pos_y, board, color):
+        mouvements = [
+            (2, 1), (2, -1), (-2, 1), (-2, -1),
+            (1, 2), (1, -2), (-1, 2), (-1, -2)
+        ]
+        deplacements = []
+        for dx, dy in mouvements:
+            nx, ny = pos_x + dx, pos_y + dy
+            if 0 <= nx <= 7 and 0 <= ny <= 7:
+                piece = board[nx,ny]
+                if piece == '' or (piece[1] != color):  # Vide ou pièce ennemie
+                    deplacements.append((nx, ny))
+        return deplacements
+
+    def pion(pos_x, pos_y, board,color):
+        deplacements = []
+        direction = 1 if color == currentPlayerColor else -1
+
+        # Avance simple
+        nx = pos_x + direction
+        if 0 <= nx <= 7 and board[nx,pos_y] == "":  # La case devant est vide
+            deplacements.append((nx, pos_y))
+
+        # Captures diagonales
+        for dy in [-1, 1]:
+            nx, ny = pos_x + direction, pos_y + dy
+            if 0 <= nx <= 7 and 0 <= ny <= 7:
+                if board[nx,ny] != "" and board[nx,ny][1] != color:
+                    deplacements.append((nx, ny))
+        return deplacements
+
+    def roi(pos_x, pos_y, board, color):
+        mouvements = [
+            (-1, -1), (-1, 0), (-1, 1),  # Haut gauche, haut, haut droite
+            (0, -1),          (0, 1),   # Gauche, droite
+            (1, -1), (1, 0), (1, 1)     # Bas gauche, bas, bas droite
+        ]
+        deplacements = []
+
+        for dx, dy in mouvements:
+            nx, ny = pos_x + dx, pos_y + dy
+            if 0 <= nx <= 7 and 0 <= ny <= 7:  # Vérifie que la position reste sur le plateau
+                piece = board[nx,ny]
+                if piece == "" or piece[1] != color:  # Case vide ou occupée par une pièce ennemie
+                    deplacements.append((nx, ny))
+
+        return deplacements
+
+    def tour(pos_x, pos_y, board, color):
+        """
+        Génère les déplacements possibles pour une tour.
+        """
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Haut, Bas, Gauche, Droite
+        return get_moves_directions(board, pos_x, pos_y, color, directions)
+
+    def fou(pos_x, pos_y, board, color):
+        """
+        Génère les déplacements possibles pour un fou.
+        """
+        directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # Diagonales
+        return get_moves_directions(board, pos_x, pos_y, color, directions)
+
+    def reine(pos_x, pos_y, board, color):
+        """
+        Génère les déplacements possibles pour une reine.
+        """
+        directions = [
+            (-1, 0), (1, 0), (0, -1), (0, 1),  # Directions de la tour
+            (-1, -1), (-1, 1), (1, -1), (1, 1)  # Directions du fou
+        ]
+        return get_moves_directions(board, pos_x, pos_y, color, directions)
+
+    def get_moves_directions(board, pos_x, pos_y, color, directions):
+        """
+        Génère les déplacements possibles dans les directions spécifiées.
+        """
         moves = []
-        piece = board[x, y][0]
-        
-        if piece == "p":  # Pawn
-            direction = 1 if color == currentPlayerColor else -1
-            
-            # Avancée simple
-            new_x = x + direction
-            if is_within_board([new_x, y], board) and board[new_x, y] == "":
-                moves.append(((x, y), (new_x, y)))
-                
-            
-            # Captures en diagonale
-            for dy in [-1, 1]:
-                capture_x = x + direction
-                capture_y = y + dy
-                if is_within_board([capture_x, capture_y], board):
-                    target = board[capture_x, capture_y]
-                    if target != "" and target[1] != color:
-                        moves.append(((x, y), (capture_x, capture_y)))
-                        
-        elif piece in ["b", "r", "q"]:  # Bishop, Rook, Queen
-            directions = []
-            if piece in ["b", "q"]:  # Bishop/Queen moves
-                directions.extend([(1, 1), (1, -1), (-1, 1), (-1, -1)])
-            if piece in ["r", "q"]:  # Rook/Queen moves
-                directions.extend([(1, 0), (-1, 0), (0, 1), (0, -1)])
-
-            for dx, dy in directions:
-                new_x, new_y = x + dx, y + dy
-                while is_within_board((new_x, new_y), board):
-                    target = board[new_x, new_y]
-                    if target == "":
-                        moves.append(((x, y), (new_x, new_y)))
-                    elif target != "" and target[1] != color:
-                        moves.append(((x, y), (new_x, new_y)))
-                        break
-                    else:  # Pièce alliée
-                        break
-                    new_x, new_y = new_x + dx, new_y + dy
-                    
-        elif piece == "n":  # Knight
-            knight_moves = [(2, 1), (2, -1), (-2, 1), (-2, -1),
-                        (1, 2), (1, -2), (-1, 2), (-1, -2)]
-            for dx, dy in knight_moves:
-                new_x, new_y = x + dx, y + dy
-                if is_within_board((new_x, new_y), board):
-                    target = board[new_x, new_y]
-                    if target == "" or (target != "" and target[1] != color):
-                        moves.append(((x, y), (new_x, new_y)))
-                        
-        elif piece == "k":  # King
-            for dx in [-1, 0, 1]:
-                for dy in [-1, 0, 1]:
-                    if dx == 0 and dy == 0:
-                        continue
-                    new_x, new_y = x + dx, y + dy
-                    if is_within_board((new_x, new_y), board):
-                        target = board[new_x, new_y]
-                        if target == "" or (target != "" and target[1] != color):
-                            moves.append(((x, y), (new_x, new_y)))
-                            
-        # Debug des mouvements générés
-        if moves:
-            print_log(f"Generated {len(moves)} moves for {piece}{color} at {x},{y}")
-            
-        return moves
-
-    def is_king_in_check(board, color):
-        """
-        Determine if the king of the specified color is in check.
-
-        :param board: Current state of the chess board as a numpy array.
-        :param color: The color of the king ('w' for white, 'b' for black).
-        :return: True if the king is in check, False otherwise.
-        """
-        # Find the king's position
-        king_pos = None
-        for x in range(board.shape[0]):
-            for y in range(board.shape[1]):
-                if board[x, y] == f"k{color}":
-                    king_pos = (x, y)
+        for dx, dy in directions:
+            nx, ny = pos_x + dx, pos_y + dy
+            while 0 <= nx < 8 and 0 <= ny < 8:
+                piece = board[nx,ny]
+                if piece == "":  # Case vide
+                    moves.append((nx, ny))
+                elif piece[1] != color:  # Pièce ennemie
+                    moves.append((nx, ny))
                     break
-            if king_pos:
-                break
-
-        # Check if any opponent piece can attack the king
-        opponent_color = "b" if color == "w" else "w"
-        for x in range(board.shape[0]):
-            for y in range(board.shape[1]):
-                if board[x, y] != "" and board[x, y][-1] == opponent_color:
-                    moves = generate_move(x, y, opponent_color, board)
-                    if any(move[1] == king_pos for move in moves):
-                        return True
-        return False
-
-    def generate_all_moves(board, color):
-        result = []
-        for x in range(board.shape[0]):
-            for y in range(board.shape[1]):
-                if board[x, y] != "" and board[x, y][-1] == color:
-                    result.extend(generate_move(x, y, color, board))
-        return result
+                else:  # Pièce alliée
+                    break
+                nx += dx
+                ny += dy
+        return moves
+    # Fonction d'évaluation modifiée
     
 
 
@@ -420,19 +607,18 @@ def chess_bot(player_sequence, board, time_budget, **kwargs):
 
 
 
-    best_move = None
     best_score = float("-inf")
-    for depth in range(2,10):
+    best_move = None
+    for depth in range(2,8):
         if time.time() - start_time > time_budget * 0.8:
             break
         current_score,current_best_move = minimaxRoot(depth, board, True,currentPlayerColor)
         if current_score > best_score:
             best_move= current_best_move
+            best_score = current_score
 
 
-
-
-    return best_move if best_move else ((0, 0), (0, 0))
+    return best_move if best_move != None else ((0, 0), (0, 0))
 
 
 #   Example how to register the function
